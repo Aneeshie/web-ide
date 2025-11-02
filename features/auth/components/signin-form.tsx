@@ -17,12 +17,12 @@ const SignInFormClient = () => {
       {/* Logo Section */}
       <div className="flex flex-col items-center justify-center mb-8">
         <div className="relative mb-4">
-          <div className="absolute inset-0 bg-linear-to-r from-blue-500 via-purple-500 to-pink-500 rounded-2xl blur-xl opacity-50 animate-pulse" />
-          <div className="relative bg-linear-to-br from-blue-600 via-purple-600 to-indigo-700 p-6 rounded-2xl shadow-2xl transform hover:scale-105 transition-transform duration-300">
+          <div className="absolute inset-0 bg-linear-to-r from-red-500 via-rose-500 to-pink-500 rounded-2xl blur-xl opacity-50 animate-pulse" />
+          <div className="relative bg-linear-to-br from-red-600 via-rose-600 to-red-700 p-6 rounded-2xl shadow-2xl transform hover:scale-105 transition-transform duration-300">
             <CodeEditorLogo className="h-16 w-16 text-white" />
           </div>
         </div>
-        <h1 className="text-2xl font-bold bg-linear-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+        <h1 className="text-2xl font-bold bg-linear-to-r from-red-400 via-rose-400 to-pink-400 bg-clip-text text-transparent">
           Code Editor
         </h1>
       </div>

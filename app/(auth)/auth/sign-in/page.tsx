@@ -3,10 +3,8 @@ import React from "react";
 
 const SignInPage = () => {
   return (
-    <div className="space-y-6 flex flex-col items-center justify-center">
-      <div className="w-full flex items-center justify-center">
-        <SignInFormClient />
-      </div>
+    <div className="w-full flex items-center justify-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <SignInFormClient />
     </div>
   );
 };

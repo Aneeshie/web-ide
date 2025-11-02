@@ -1,10 +1,10 @@
 "use client";
 
-import React from "react";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
 import { LogOutButtonProps } from "../types";
+import { Button } from "@/components/ui/button";
 
 const LogOutButton = ({ children }: LogOutButtonProps) => {
   const router = useRouter();
@@ -15,9 +15,9 @@ const LogOutButton = ({ children }: LogOutButtonProps) => {
   };
 
   return (
-    <span className="cursor-pointer" onClick={onLogout}>
+    <Button className="cursor-pointer w-full text-left" onClick={onLogout}>
       {children}
-    </span>
+    </Button>
   );
 };
 

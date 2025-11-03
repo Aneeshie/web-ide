@@ -15,7 +15,7 @@ export default function Home() {
               "bg-[linear-gradient(to_right,#ef4444_1px,transparent_1px),linear-gradient(to_bottom,#ef4444_1px,transparent_1px)]",
               "bg-size-[4rem_4rem]",
               "mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,black_40%,transparent_100%)",
-              "overflow-hidden"
+              "overflow-hidden",
             )}
           />
           <Image

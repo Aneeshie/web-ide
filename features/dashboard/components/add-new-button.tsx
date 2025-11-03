@@ -2,11 +2,41 @@
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import {useState} from "react";
+import TemplateSelectionModal from "@/features/dashboard/components/template-selection-modal";
+import {createPlayground} from "@/features/dashboard/actions";
+import {toast} from "sonner";
+import {useRouter} from "next/navigation";
 
 const AddNewButton = () => {
+
+  const [isModalOpen, setIsModalOpen] =useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<{
+    title: string;
+    template: "REACTJS" | "NEXTJS" | "EXPRESSJS" | "VUE" | "HONO"| "ANGULAR";
+    description?: string;
+  } | null>(null)
+
+  const router = useRouter()
+
+  const handleSubmit = async (data: {
+    title: string;
+    template: "REACTJS" | "NEXTJS" | "EXPRESSJS" | "VUE" | "HONO"| "ANGULAR";
+    description?: string;
+  } ) => {
+    setSelectedTemplate(data);
+    const res = await createPlayground(data);
+    toast.success("Playground created successfully.");
+
+    setIsModalOpen(false);
+    router.push(`/playground/${res?.id}`)
+  }
+
+
   return (
+    <>
     <div
+      onClick={() => setIsModalOpen(true)}
       className="group relative px-6 py-6 flex flex-row justify-between items-center rounded-xl border border-border bg-muted/70 cursor-pointer
         transition-all duration-300 ease-in-out
         hover:bg-background hover:border-[#E93F3F]/60 hover:scale-[1.015]
@@ -43,8 +73,8 @@ const AddNewButton = () => {
         <Image
           src={"/add-new.svg"}
           alt="Create new playground"
-          width={130}
-          height={130}
+          width={120}
+          height={120}
           className="opacity-95 transition-transform duration-300 group-hover:scale-110"
         />
       </div>
@@ -54,6 +84,8 @@ const AddNewButton = () => {
         blur-sm transition-opacity duration-300 opacity-70 group-hover:opacity-100"
       />
     </div>
+      <TemplateSelectionModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSubmit={handleSubmit}/>
+    </>
   );
 };
 

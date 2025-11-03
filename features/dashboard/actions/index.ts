@@ -15,14 +15,30 @@ export const createPlayground = async (data: {
   const user = await currentUser();
 
   if (!user) return null;
+  if (!user.id) return null;
 
   try {
+    // Ensure the session user exists in the database (handles cases where DB was reset or changed)
+    let dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+    if (!dbUser && user.email) {
+      dbUser = await prisma.user.upsert({
+        where: { email: user.email },
+        update: {},
+        create: {
+          email: user.email,
+          name: user.name || undefined,
+          image: user.image || undefined,
+        },
+      });
+    }
+    if (!dbUser) return null;
+
     const playground = await prisma.playground.create({
       data: {
         title,
         description: description || "",
         template,
-        userId: user?.id!,
+        user: { connect: { id: dbUser.id } },
       },
     });
 
@@ -36,10 +52,14 @@ export const createPlayground = async (data: {
 export const getAllPlaygroundsByUser = async () => {
   const user = await currentUser();
 
+  if (!user) {
+    return [];
+  }
+
   try {
     const playground = await prisma.playground.findMany({
       where: {
-        userId: user?.id,
+        userId: user.id,
       },
       include: {
         user: true,

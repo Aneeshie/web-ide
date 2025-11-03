@@ -60,7 +60,7 @@ const SignInFormClient = () => {
             >
               <GithubIcon className="mr-3 h-5 w-5 text-zinc-300 group-hover:text-purple-400 group-hover:scale-110 transition-all" />
               <span className="text-zinc-200 font-medium">
-                Continue with GitHub
+                Continue with Github
               </span>
             </Button>
           </form>

@@ -18,7 +18,6 @@ export const createPlayground = async (data: {
   if (!user.id) return null;
 
   try {
-    // Ensure the session user exists in the database (handles cases where DB was reset or changed)
     let dbUser = await prisma.user.findUnique({ where: { id: user.id } });
     if (!dbUser && user.email) {
       dbUser = await prisma.user.upsert({

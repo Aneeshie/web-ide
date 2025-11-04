@@ -32,6 +32,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  DeleteDialog,
+  NewFileDialog,
+  NewFolderDialog,
+  RenameFolderDialog,
+} from "./template-file-tree";
 
 interface TemplateNodeProps {
   item: TemplateItem;
@@ -70,7 +76,10 @@ function TemplateNode({
 }: TemplateNodeProps) {
   const isValidItem = item && typeof item === "object";
   const isFolder = isValidItem && "folderName" in item;
-
+  const [isNewFileDialogOpen, setIsNewFileDialogOpen] = useState(false);
+  const [isNewFolderDialogOpen, setIsNewFolderDialogOpen] = useState(false);
+  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(level < 2);
 
   if (!isValidItem) return null;
@@ -83,6 +92,24 @@ function TemplateNode({
       selectedFile &&
       selectedFile.filename === file.filename &&
       selectedFile.fileExtension === file.fileExtension;
+
+    const handleRename = () => {
+      setIsRenameDialogOpen(true);
+    };
+
+    const handleDelete = () => {
+      setIsDeleteDialogOpen(true);
+    };
+
+    const confirmDelete = () => {
+      onDeleteFile?.(file, path);
+      setIsDeleteDialogOpen(false);
+    };
+
+    const handleRenameSubmit = (newFilename: string, newExtension: string) => {
+      onRenameFile?.(file, newFilename, newExtension, path);
+      setIsRenameDialogOpen(false);
+    };
 
     return (
       <SidebarMenuItem>
@@ -107,12 +134,15 @@ function TemplateNode({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => {}}>
+              <DropdownMenuItem onClick={handleRename}>
                 <Edit3 className="h-4 w-4 mr-2" />
                 Rename
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => {}} className="text-destructive">
+              <DropdownMenuItem
+                onClick={handleDelete}
+                className="text-destructive"
+              >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Delete
               </DropdownMenuItem>
@@ -125,6 +155,55 @@ function TemplateNode({
     const folder = item as TemplateFolder;
     const folderName = folder.folderName;
     const currentPath = path ? `${path}/${folderName}` : folderName;
+
+    const handleAddFile = () => {
+      setIsNewFileDialogOpen(true);
+    };
+
+    const handleAddFolder = () => {
+      setIsNewFolderDialogOpen(true);
+    };
+
+    const handleDelete = () => {
+      setIsDeleteDialogOpen(true);
+    };
+
+    const confirmDelete = () => {
+      onDeleteFolder?.(folder, path);
+      setIsDeleteDialogOpen(false);
+    };
+
+    const handleCreateFile = (filename: string, extension: string) => {
+      if (onAddFile) {
+        const newFile: TemplateFile = {
+          filename,
+          fileExtension: extension,
+          content: "",
+        };
+        onAddFile(newFile, currentPath);
+      }
+      setIsNewFileDialogOpen(false);
+    };
+
+    const handleCreateFolder = (folderName: string) => {
+      if (onAddFolder) {
+        const newFolder: TemplateFolder = {
+          folderName,
+          items: [],
+        };
+        onAddFolder(newFolder, currentPath);
+      }
+      setIsNewFolderDialogOpen(false);
+    };
+
+    const handleRenameSubmit = (newFolderName: string) => {
+      onRenameFolder?.(folder, newFolderName, path);
+      setIsRenameDialogOpen(false);
+    };
+
+    const handleRename = () => {
+      setIsRenameDialogOpen(true);
+    };
 
     return (
       <SidebarMenuItem>
@@ -153,22 +232,22 @@ function TemplateNode({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => {}}>
+                <DropdownMenuItem onClick={handleAddFile}>
                   <FilePlus className="h-4 w-4 mr-2" />
                   New File
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => {}}>
+                <DropdownMenuItem onClick={handleAddFolder}>
                   <FolderPlus className="h-4 w-4 mr-2" />
                   New Folder
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => {}}>
+                <DropdownMenuItem onClick={handleRename}>
                   <Edit3 className="h-4 w-4 mr-2" />
                   Rename
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={() => {}}
+                  onClick={handleDelete}
                   className="text-destructive"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
@@ -199,6 +278,36 @@ function TemplateNode({
             </SidebarMenuSub>
           </CollapsibleContent>
         </Collapsible>
+
+        <NewFileDialog
+          isOpen={isNewFileDialogOpen}
+          onClose={() => setIsNewFileDialogOpen(false)}
+          onCreateFile={handleCreateFile}
+        />
+
+        <NewFolderDialog
+          isOpen={isNewFolderDialogOpen}
+          onClose={() => setIsNewFolderDialogOpen(false)}
+          onCreateFolder={handleCreateFolder}
+        />
+
+        <RenameFolderDialog
+          isOpen={isRenameDialogOpen}
+          onClose={() => setIsRenameDialogOpen(false)}
+          onRename={handleRenameSubmit}
+          currentFolderName={folderName}
+        />
+
+        <DeleteDialog
+          isOpen={isDeleteDialogOpen}
+          setIsOpen={setIsDeleteDialogOpen}
+          onConfirm={confirmDelete}
+          title="Delete Folder"
+          description={`Are you sure you want to delete "${folderName}" and all its contents? This action cannot be undone.`}
+          itemName={folderName}
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+        />
       </SidebarMenuItem>
     );
   }

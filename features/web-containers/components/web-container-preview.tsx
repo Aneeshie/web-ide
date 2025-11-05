@@ -28,6 +28,8 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
   forceResetup = false,
 }) => {
   const [previewUrl, setPreviewUrl] = useState<string>("");
+  // Persist the preview URL to survive component remounts and missed events
+  const storageKey = "webcontainer_preview_url";
   const [loadingState, setLoadingState] = useState({
     transforming: false,
     mounting: false,
@@ -43,6 +45,8 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
 
   // Ref to access terminal methods
   const terminalRef = useRef<any>(null);
+  // Ensure we don't attach multiple listeners across rerenders
+  const serverReadyListenerAttached = useRef<boolean>(false);
 
   // Reset setup state when forceResetup changes
   useEffect(() => {
@@ -69,29 +73,71 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
       try {
         setIsSetupInProgress(true);
         setSetupError(null);
-
-        // Check if server is already running by testing if files are already mounted
         try {
-          const packageJsonExists = await instance.fs.readFile(
-            "package.json",
-            "utf8",
-          );
-          if (packageJsonExists) {
-            // Files are already mounted, just reconnect to existing server
-            if (terminalRef.current?.writeToTerminal) {
-              terminalRef.current.writeToTerminal(
-                "Reconnecting to existing WebContainer session...\r\n",
-              );
-            }
+          window.localStorage.removeItem(storageKey);
+        } catch {}
 
-            // Check if server is already running
+        const startServer = async (pkgJsonRaw: string) => {
+          const pkg = JSON.parse(pkgJsonRaw || "{}");
+          const scripts = pkg?.scripts || {};
+          const hasDev = Boolean(scripts.dev);
+          const hasStart = Boolean(scripts.start);
+
+          // If no dev but has start, some frameworks require a build first
+          if (!hasDev && hasStart && scripts.build) {
+            if (terminalRef.current?.writeToTerminal) {
+              terminalRef.current.writeToTerminal("Building project...\\r\\n");
+            }
+            const buildProcess = await instance.spawn("npm", ["run", "build"]);
+            buildProcess.output.pipeTo(
+              new WritableStream({
+                write(data) {
+                  if (terminalRef.current?.writeToTerminal) {
+                    terminalRef.current.writeToTerminal(data);
+                  }
+                },
+              })
+            );
+            const buildExit = await buildProcess.exit;
+            if (buildExit !== 0) {
+              throw new Error(`Build failed with exit code ${buildExit}`);
+            }
+          }
+
+          const startArgs = hasDev
+            ? ["run", "dev"]
+            : hasStart
+            ? ["run", "start"]
+            : null;
+
+          if (!startArgs) {
+            throw new Error(
+              "No start or dev script found in package.json. Add a 'dev' or 'start' script."
+            );
+          }
+
+          if (terminalRef.current?.writeToTerminal) {
+            terminalRef.current.writeToTerminal(
+              `Starting development server with: npm ${startArgs.join(
+                " "
+              )}...\\r\\n`
+            );
+          }
+
+          const startProcess = await instance.spawn("npm", startArgs);
+
+          // Listen for server ready event (works for both fresh and reconnect flows)
+          if (!serverReadyListenerAttached.current) {
             instance.on("server-ready", (port: number, url: string) => {
-              console.log(`Reconnected to server on port ${port} at ${url}`);
+              console.log(`Server ready on port ${port} at ${url}`);
               if (terminalRef.current?.writeToTerminal) {
                 terminalRef.current.writeToTerminal(
-                  ` Reconnected to server at ${url}\r\n`,
+                  ` Server ready at ${url}\r\n`
                 );
               }
+              try {
+                window.localStorage.setItem(storageKey, url);
+              } catch {}
               setPreviewUrl(url);
               setLoadingState((prev) => ({
                 ...prev,
@@ -101,14 +147,24 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
               setIsSetupComplete(true);
               setIsSetupInProgress(false);
             });
-
-            setCurrentStep(4);
-            setLoadingState((prev) => ({ ...prev, starting: true }));
-            return;
+            serverReadyListenerAttached.current = true;
           }
-        } catch (e) {
-          // Files don't exist, proceed with normal setup
-        }
+
+          // Stream output to terminal
+          startProcess.output.pipeTo(
+            new WritableStream({
+              write(data) {
+                if (terminalRef.current?.writeToTerminal) {
+                  terminalRef.current.writeToTerminal(data);
+                }
+              },
+            })
+          );
+
+          // Intentionally do not await exit; dev servers usually run indefinitely
+        };
+
+        // Always perform a fresh setup (no reconnect path)
 
         // Step 1: Transform data
         setLoadingState((prev) => ({ ...prev, transforming: true }));
@@ -117,7 +173,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
         // Write to terminal
         if (terminalRef.current?.writeToTerminal) {
           terminalRef.current.writeToTerminal(
-            "🔄 Transforming template data...\r\n",
+            "🔄 Transforming template data...\\r\\n"
           );
         }
 
@@ -133,7 +189,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
         // Step 2: Mount files
         if (terminalRef.current?.writeToTerminal) {
           terminalRef.current.writeToTerminal(
-            "📁 Mounting files to WebContainer...\r\n",
+            "📁 Mounting files to WebContainer...\\r\\n"
           );
         }
 
@@ -141,7 +197,7 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
 
         if (terminalRef.current?.writeToTerminal) {
           terminalRef.current.writeToTerminal(
-            "✅ Files mounted successfully\r\n",
+            "✅ Files mounted successfully\\r\\n"
           );
         }
 
@@ -152,12 +208,21 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
         }));
         setCurrentStep(3);
 
-        // Step 3: Install dependencies
+        // Step 3: Install dependencies (fresh install)
         if (terminalRef.current?.writeToTerminal) {
           terminalRef.current.writeToTerminal(
-            "📦 Installing dependencies...\r\n",
+            "📦 Installing dependencies...\\r\\n"
           );
         }
+
+        // Clean node_modules and lockfile to ensure fresh install, but keep files
+        try {
+          const cleanProcess = await instance.spawn("bash", [
+            "-lc",
+            "rm -rf node_modules package-lock.json 2>/dev/null || true",
+          ]);
+          await cleanProcess.exit;
+        } catch {}
 
         const installProcess = await instance.spawn("npm", ["install"]);
 
@@ -170,20 +235,20 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
                 terminalRef.current.writeToTerminal(data);
               }
             },
-          }),
+          })
         );
 
         const installExitCode = await installProcess.exit;
 
         if (installExitCode !== 0) {
           throw new Error(
-            `Failed to install dependencies. Exit code: ${installExitCode}`,
+            `Failed to install dependencies. Exit code: ${installExitCode}`
           );
         }
 
         if (terminalRef.current?.writeToTerminal) {
           terminalRef.current.writeToTerminal(
-            " Dependencies installed successfully\r\n",
+            " Dependencies installed successfully\\r\\n"
           );
         }
 
@@ -197,44 +262,22 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
         // Step 4: Start the server
         if (terminalRef.current?.writeToTerminal) {
           terminalRef.current.writeToTerminal(
-            "Starting development server...\r\n",
+            "Starting development server...\\r\\n"
           );
         }
 
-        const startProcess = await instance.spawn("npm", ["run", "start"]);
-
-        // Listen for server ready event
-        instance.on("server-ready", (port: number, url: string) => {
-          console.log(`Server ready on port ${port} at ${url}`);
-          if (terminalRef.current?.writeToTerminal) {
-            terminalRef.current.writeToTerminal(` Server ready at ${url}\r\n`);
-          }
-          setPreviewUrl(url);
-          setLoadingState((prev) => ({
-            ...prev,
-            starting: false,
-            ready: true,
-          }));
-          setIsSetupComplete(true);
-          setIsSetupInProgress(false);
-        });
-
-        // Handle start process output - stream to terminal
-        startProcess.output.pipeTo(
-          new WritableStream({
-            write(data) {
-              if (terminalRef.current?.writeToTerminal) {
-                terminalRef.current.writeToTerminal(data);
-              }
-            },
-          }),
+        // Read package.json from the mounted FS to decide command
+        const packageJsonAfterMount = await instance.fs.readFile(
+          "package.json",
+          "utf8"
         );
+        await startServer(packageJsonAfterMount);
       } catch (err) {
         console.error("Error setting up container:", err);
         const errorMessage = err instanceof Error ? err.message : String(err);
 
         if (terminalRef.current?.writeToTerminal) {
-          terminalRef.current.writeToTerminal(` Error: ${errorMessage}\r\n`);
+          terminalRef.current.writeToTerminal(` Error: ${errorMessage}\\r\\n`);
         }
 
         setSetupError(errorMessage);
@@ -308,8 +351,8 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
           isComplete
             ? "text-green-600"
             : isActive
-              ? "text-blue-600"
-              : "text-gray-500"
+            ? "text-blue-600"
+            : "text-gray-500"
         }`}
       >
         {label}

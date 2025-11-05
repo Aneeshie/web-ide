@@ -190,6 +190,16 @@ Two AI features powered by local Ollama instance:
 
 Pre-built project templates in `/code-starters/` directory are converted to JSON and stored in the database when creating a new playground.
 
+---
+
+### Status of Certain Features
+
+> ⚠️ **Heads Up**
+> The **User Settings** page and **Add Git Repository** features are still under development.
+> The buttons are currently placeholders and **do not perform any actions yet**.
+> Functionality will be rolled out in upcoming updates ✨
+
+
 ## Troubleshooting
 
 ### WebContainer not loading
@@ -213,6 +223,7 @@ Pre-built project templates in `/code-starters/` directory are converted to JSON
 - Ensure `AUTH_SECRET` is set in `.env`
 
 ## Contributing
+
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 

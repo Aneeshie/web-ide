@@ -23,8 +23,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import PlaygroundEditor from "@/features/playground/components/playground-editor";
+import { useAISuggestions } from "@/features/ai/hooks/use-ai-suggestions";
+import { PlaygroundEditor } from "@/features/playground/components/playground-editor";
 import { TemplateFileTree } from "@/features/playground/components/template-file-tree";
+import ToggleAI from "@/features/playground/components/toggle-ai";
 import { useFileExplorer } from "@/features/playground/hooks/use-file-explorer";
 import { usePlayground } from "@/features/playground/hooks/use-playground";
 import { findFilePath } from "@/features/playground/lib";
@@ -48,6 +50,8 @@ const Page = () => {
   const { id } = useParams<{ id: string }>();
   const { playgroundData, templateData, isLoading, error, saveTemplateData } =
     usePlayground(id);
+
+  const aiSuggestion = useAISuggestions();
 
   const [isPreviewVisible, setIsPreviewVisible] = useState(true);
   const {
@@ -96,31 +100,31 @@ const Page = () => {
         parentPath,
         writeFileSync!,
         instance,
-        saveTemplateData,
+        saveTemplateData
       );
     },
-    [handleAddFile, writeFileSync, instance, saveTemplateData],
+    [handleAddFile, writeFileSync, instance, saveTemplateData]
   );
 
   const wrappedHandleAddFolder = useCallback(
     (newFolder: TemplateFolder, parentPath: string) => {
       return handleAddFolder(newFolder, parentPath, instance, saveTemplateData);
     },
-    [handleAddFolder, instance, saveTemplateData],
+    [handleAddFolder, instance, saveTemplateData]
   );
 
   const wrappedHandleDeleteFile = useCallback(
     (file: TemplateFile, parentPath: string) => {
       return handleDeleteFile(file, parentPath, saveTemplateData);
     },
-    [handleDeleteFile, saveTemplateData],
+    [handleDeleteFile, saveTemplateData]
   );
 
   const wrappedHandleDeleteFolder = useCallback(
     (folder: TemplateFolder, parentPath: string) => {
       return handleDeleteFolder(folder, parentPath, saveTemplateData);
     },
-    [handleDeleteFolder, saveTemplateData],
+    [handleDeleteFolder, saveTemplateData]
   );
 
   const wrappedHandleRenameFile = useCallback(
@@ -128,17 +132,17 @@ const Page = () => {
       file: TemplateFile,
       newFilename: string,
       newExtension: string,
-      parentPath: string,
+      parentPath: string
     ) => {
       return handleRenameFile(
         file,
         newFilename,
         newExtension,
         parentPath,
-        saveTemplateData,
+        saveTemplateData
       );
     },
-    [handleRenameFile, saveTemplateData],
+    [handleRenameFile, saveTemplateData]
   );
 
   const wrappedHandleRenameFolder = useCallback(
@@ -147,10 +151,10 @@ const Page = () => {
         folder,
         newFolderName,
         parentPath,
-        saveTemplateData,
+        saveTemplateData
       );
     },
-    [handleRenameFolder, saveTemplateData],
+    [handleRenameFolder, saveTemplateData]
   );
 
   const activeFile = openFiles.find((file) => file.id === activeFileId);
@@ -175,14 +179,14 @@ const Page = () => {
         const filePath = findFilePath(fileToSave, latestTemplateData);
         if (!filePath) {
           toast.error(
-            `Could not find path for file: ${fileToSave.filename}.${fileToSave.fileExtension}`,
+            `Could not find path for file: ${fileToSave.filename}.${fileToSave.fileExtension}`
           );
           return;
         }
 
         // Update file content in template data (clone for immutability)
         const updatedTemplateData = JSON.parse(
-          JSON.stringify(latestTemplateData),
+          JSON.stringify(latestTemplateData)
         );
         const updateFileContent = (items: any[]) =>
           items.map((item) => {
@@ -197,7 +201,7 @@ const Page = () => {
             return item;
           });
         updatedTemplateData.items = updateFileContent(
-          updatedTemplateData.items,
+          updatedTemplateData.items
         );
 
         // Sync with WebContainer
@@ -223,17 +227,17 @@ const Page = () => {
                 originalContent: fileToSave.content,
                 hasUnsavedChanges: false,
               }
-            : f,
+            : f
         );
         setOpenFiles(updatedOpenFiles);
 
         toast.success(
-          `Saved ${fileToSave.filename}.${fileToSave.fileExtension}`,
+          `Saved ${fileToSave.filename}.${fileToSave.fileExtension}`
         );
       } catch (error) {
         console.error("Error saving file:", error);
         toast.error(
-          `Failed to save ${fileToSave.filename}.${fileToSave.fileExtension}`,
+          `Failed to save ${fileToSave.filename}.${fileToSave.fileExtension}`
         );
         throw error;
       }
@@ -246,7 +250,7 @@ const Page = () => {
       saveTemplateData,
       setTemplateData,
       setOpenFiles,
-    ],
+    ]
   );
 
   const handleSaveAll = async () => {
@@ -383,6 +387,11 @@ const Page = () => {
                 </Tooltip>
 
                 {/* TODO: Toggle Ai Component  */}
+                <ToggleAI
+                  isEnabled={aiSuggestion.isEnabled}
+                  onToggle={aiSuggestion.toggleEnabled}
+                  suggestionLoading={aiSuggestion.isLoading}
+                />
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -482,6 +491,18 @@ const Page = () => {
                         editorContent={activeFile?.content || ""}
                         onContentChange={(value) =>
                           activeFileId && updateFileContent(activeFileId, value)
+                        }
+                        suggestion={aiSuggestion.suggestion}
+                        suggestionLoading={aiSuggestion.isLoading}
+                        suggestionPosition={aiSuggestion.position}
+                        onAcceptSuggestion={(editor, monaco) =>
+                          aiSuggestion.acceptSuggestion(editor, monaco)
+                        }
+                        onRejectSuggestion={(editor) =>
+                          aiSuggestion.rejectSuggestion(editor)
+                        }
+                        onTriggerSuggestion={(type, editor) =>
+                          aiSuggestion.fetchSuggestion(type, editor)
                         }
                       />
                     </ResizablePanel>

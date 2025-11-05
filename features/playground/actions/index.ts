@@ -35,11 +35,11 @@ export const saveUpdatedCode = async (id: string, data: TemplateFolder) => {
     const updatedPlayground = await prisma.templateFile.upsert({
       where: { playgroundId: id },
       update: {
-        content: JSON.stringify(data),
+        content: data as any,
       },
       create: {
         playgroundId: id,
-        content: JSON.stringify(data),
+        content: data as any,
       },
     });
     return updatedPlayground;

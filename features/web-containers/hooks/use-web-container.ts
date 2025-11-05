@@ -56,6 +56,64 @@ export const useWebContainer = ({
     };
   }, []);
 
+  // Sync templateData to WebContainer when both are ready
+  useEffect(() => {
+    if (!instance || !templateData) return;
+
+    async function syncTemplateData() {
+      try {
+        const writeFile = async (
+          filePath: string,
+          content: string
+        ) => {
+          const parts = filePath.split("/");
+          const folderPath = parts.slice(0, -1).join("/");
+
+          if (folderPath) {
+            await instance.fs.mkdir(folderPath, { recursive: true });
+          }
+
+          await instance.fs.writeFile(filePath, content);
+        };
+
+        const processItem = async (
+          item: Record<string, any>,
+          currentPath: string = ""
+        ): Promise<void> => {
+          if ("folderName" in item) {
+            // It's a folder
+            const folderPath = currentPath ? `${currentPath}/${item.folderName}` : item.folderName;
+            if (item.items && Array.isArray(item.items)) {
+              for (const subItem of item.items) {
+                await processItem(subItem, folderPath);
+              }
+            }
+          } else if ("filename" in item) {
+            // It's a file
+            const filePath = currentPath
+              ? `${currentPath}/${item.filename}.${item.fileExtension}`
+              : `${item.filename}.${item.fileExtension}`;
+            await writeFile(filePath, item.content || "");
+          }
+        };
+
+        // Process root items
+        if (templateData.items && Array.isArray(templateData.items)) {
+          for (const item of templateData.items) {
+            await processItem(item, "");
+          }
+        }
+
+        console.log("[useWebContainer] Template data synced to WebContainer");
+      } catch (err) {
+        console.error("[useWebContainer] Failed to sync template data:", err);
+      }
+    }
+
+    syncTemplateData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [instance, templateData]);
+
   const writeFileSync = useCallback(
     async (path: string, content: string): Promise<void> => {
       if (!instance) {

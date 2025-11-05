@@ -4,6 +4,9 @@ import { currentUser } from "@/features/auth/actions";
 import prisma from "@/lib/db";
 import { Templates } from "@/lib/generated/prisma/enums";
 import { revalidatePath } from "next/cache";
+import { templatePaths } from "@/lib/template";
+import { scanTemplateDirectory } from "@/features/playground/lib/path-to-json";
+import path from "path";
 
 export const createPlayground = async (data: {
   title: string;
@@ -32,13 +35,43 @@ export const createPlayground = async (data: {
     }
     if (!dbUser) return null;
 
-    const playground = await prisma.playground.create({
-      data: {
-        title,
-        description: description || "",
-        template,
-        user: { connect: { id: dbUser.id } },
-      },
+    // Get the template path
+    const templateKey = template as keyof typeof templatePaths;
+    const templatePath = templatePaths[templateKey];
+    
+    if (!templatePath) {
+      throw new Error(`Invalid template: ${template}`);
+    }
+
+    // Generate template structure
+    const inputPath = path.join(process.cwd(), templatePath);
+    console.log("[createPlayground] Scanning template at:", inputPath);
+    const templateStructure = await scanTemplateDirectory(inputPath);
+    console.log("[createPlayground] Template structure generated:", {
+      folderName: templateStructure.folderName,
+      itemCount: templateStructure.items.length,
+    });
+
+    // Create playground with template files in a transaction
+    const playground = await prisma.$transaction(async (tx) => {
+      const newPlayground = await tx.playground.create({
+        data: {
+          title,
+          description: description || "",
+          template,
+          user: { connect: { id: dbUser.id } },
+        },
+      });
+
+      // Create the template file with the generated structure
+      await tx.templateFile.create({
+        data: {
+          playgroundId: newPlayground.id,
+          content: templateStructure,
+        },
+      });
+
+      return newPlayground;
     });
 
     return playground;
@@ -112,19 +145,36 @@ export const duplicateProjectById = async (id: string) => {
   try {
     const original = await prisma.playground.findUnique({
       where: { id },
+      include: {
+        templateFiles: true,
+      },
     });
 
     if (!original) {
       throw new Error("playground not found");
     }
 
-    const duplicatedProject = await prisma.playground.create({
-      data: {
-        title: `${original.title} (Copy)`,
-        description: `${original.description}`,
-        template: `${original.template}`,
-        userId: `${original.userId}`,
-      },
+    const duplicatedProject = await prisma.$transaction(async (tx) => {
+      const newProject = await tx.playground.create({
+        data: {
+          title: `${original.title} (Copy)`,
+          description: `${original.description}`,
+          template: original.template,
+          userId: original.userId,
+        },
+      });
+
+      // Copy template files if they exist
+      if (original.templateFiles && original.templateFiles.length > 0) {
+        await tx.templateFile.create({
+          data: {
+            playgroundId: newProject.id,
+            content: original.templateFiles[0].content,
+          },
+        });
+      }
+
+      return newProject;
     });
 
     revalidatePath("/dashboard");

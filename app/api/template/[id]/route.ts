@@ -1,22 +1,10 @@
 import {
-  readTemplateStructureFromJson,
-  saveTemplateStructureToJson,
+  scanTemplateDirectory,
 } from "@/features/playground/lib/path-to-json";
 import prisma from "@/lib/db";
 import { templatePaths } from "@/lib/template";
 import { NextRequest } from "next/server";
 import path from "path";
-import fs from "fs/promises";
-
-function validateJsonStructure(data: unknown): boolean {
-  try {
-    JSON.parse(JSON.stringify(data));
-    return true;
-  } catch (error) {
-    console.error("Invalid JSON structure; ", error);
-    return false;
-  }
-}
 
 export async function GET(
   req: NextRequest,
@@ -45,27 +33,20 @@ export async function GET(
 
   try {
     const inputPath = path.join(process.cwd(), templatePath);
-    const outputFile = path.join(process.cwd(), `output/${templateKey}.json`);
-
-    await saveTemplateStructureToJson(inputPath, outputFile);
-    const result = await readTemplateStructureFromJson(outputFile);
-
-    //validate json structure
-    if (!validateJsonStructure(result.items)) {
-      return Response.json(
-        { error: "Invalid JSON structure" },
-        { status: 500 }
-      );
-    }
-
-    await fs.unlink(outputFile);
+    console.log("[API] Scanning template at:", inputPath);
+    
+    const result = await scanTemplateDirectory(inputPath);
+    console.log("[API] Template structure generated:", {
+      folderName: result.folderName,
+      itemCount: result.items.length,
+    });
 
     return Response.json(
       { success: "true", templateJson: result },
       { status: 200 }
     );
   } catch (error) {
-    console.error("Error generating template JSON: ", error);
+    console.error("[API] Error generating template JSON:", error);
     return Response.json(
       { error: "Failed to generate template" },
       { status: 500 }

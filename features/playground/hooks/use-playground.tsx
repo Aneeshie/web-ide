@@ -37,21 +37,38 @@ export const usePlayground = (id: string): UsePlaygroundReturn => {
       setError(null);
       const pg = await getPlaygroundById(id);
 
+      console.log("[usePlayground] Playground data:", pg);
       //@ts-expect-error later
       setPlaygroundData(pg);
       const rawContent = pg?.templateFiles?.[0]?.content;
 
+      console.log("[usePlayground] rawContent type:", typeof rawContent);
+      console.log("[usePlayground] rawContent:", rawContent);
+
+      // Prisma returns JSON fields as already parsed objects
+      if (rawContent && typeof rawContent === "object") {
+        console.log("[usePlayground] Using template from database (object)");
+        setTemplateData(rawContent as TemplateFolder);
+        toast.success("playground loaded successfully!");
+        return;
+      }
+
+      // Fallback: Try to parse if it's a string (shouldn't happen, but for safety)
       if (typeof rawContent === "string") {
+        console.log("[usePlayground] Parsing template from database (string)");
         const parsedContent = JSON.parse(rawContent);
         setTemplateData(parsedContent);
         toast.success("playground loaded successfully!");
         return;
       }
 
+      console.log("[usePlayground] No template files in DB, calling API...");
+      // If no template files exist in DB, generate from template starters
       const res = await fetch(`/api/template/${id}`);
       if (!res.ok) throw new Error(`Failed to load template: ${res.status}`);
 
       const templateResponse = await res.json();
+      console.log("[usePlayground] API response:", templateResponse);
 
       if (
         templateResponse.templateJson &&
@@ -72,7 +89,7 @@ export const usePlayground = (id: string): UsePlaygroundReturn => {
 
       toast.success("Template loaded successfully!");
     } catch (error) {
-      console.log("error loading playground", error);
+      console.error("[usePlayground] Error loading playground:", error);
       setError("Failed to load playground data");
       toast.error("Failed to load playground data");
     } finally {

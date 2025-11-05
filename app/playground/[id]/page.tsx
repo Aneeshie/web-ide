@@ -54,6 +54,16 @@ const Page = () => {
   const aiSuggestion = useAISuggestions();
 
   const [isPreviewVisible, setIsPreviewVisible] = useState(true);
+  const [zustandTemplateData, setZustandTemplateData] = useState<TemplateFolder | null>(null);
+
+  // Subscribe to Zustand store changes
+  useEffect(() => {
+    const unsubscribe = useFileExplorer.subscribe(
+      (state) => state.templateData,
+      (templateData) => setZustandTemplateData(templateData)
+    );
+    return unsubscribe;
+  }, []);
   const {
     activeFileId,
     closeAllFiles,
@@ -176,6 +186,7 @@ const Page = () => {
       if (!latestTemplateData) return;
 
       try {
+        console.time(`[handleSave] Save file ${fileToSave.filename}`);
         const filePath = findFilePath(fileToSave, latestTemplateData);
         if (!filePath) {
           toast.error(
@@ -204,19 +215,16 @@ const Page = () => {
           updatedTemplateData.items
         );
 
-        // Sync with WebContainer
+        // Sync with WebContainer (single write)
         if (writeFileSync) {
           await writeFileSync(filePath, fileToSave.content);
           lastSyncedContent.current.set(fileToSave.id, fileToSave.content);
-          if (instance && instance.fs) {
-            await instance.fs.writeFile(filePath, fileToSave.content);
-          }
         }
 
-        // Use saveTemplateData to persist changes
-        const newTemplateData = await saveTemplateData(updatedTemplateData);
+        // Use saveTemplateData to persist changes (silent - we show our own toast below)
+        await saveTemplateData(updatedTemplateData, false);
         //@ts-ignore
-        setTemplateData(newTemplateData || updatedTemplateData);
+        setTemplateData(updatedTemplateData);
 
         // Update open files
         const updatedOpenFiles = openFiles.map((f) =>
@@ -231,6 +239,7 @@ const Page = () => {
         );
         setOpenFiles(updatedOpenFiles);
 
+        console.timeEnd(`[handleSave] Save file ${fileToSave.filename}`);
         toast.success(
           `Saved ${fileToSave.filename}.${fileToSave.fileExtension}`
         );
@@ -511,7 +520,7 @@ const Page = () => {
                         <ResizableHandle />
                         <ResizablePanel defaultSize={50}>
                           <WebContainerPreview
-                            templateData={templateData!}
+                            templateData={zustandTemplateData || templateData!}
                             instance={instance}
                             serverUrl={serverUrl!}
                             isLoading={containerLoading}

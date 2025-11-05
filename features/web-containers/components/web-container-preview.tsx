@@ -42,11 +42,10 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
   const [setupError, setSetupError] = useState<string | null>(null);
   const [isSetupComplete, setIsSetupComplete] = useState(false);
   const [isSetupInProgress, setIsSetupInProgress] = useState(false);
+  const lastTemplateDataRef = useRef<TemplateFolder | null>(null);
 
   // Ref to access terminal methods
   const terminalRef = useRef<any>(null);
-  // Ensure we don't attach multiple listeners across rerenders
-  const serverReadyListenerAttached = useRef<boolean>(false);
 
   // Reset setup state when forceResetup changes
   useEffect(() => {
@@ -125,30 +124,6 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
           }
 
           const startProcess = await instance.spawn("npm", startArgs);
-
-          // Listen for server ready event (works for both fresh and reconnect flows)
-          if (!serverReadyListenerAttached.current) {
-            instance.on("server-ready", (port: number, url: string) => {
-              console.log(`Server ready on port ${port} at ${url}`);
-              if (terminalRef.current?.writeToTerminal) {
-                terminalRef.current.writeToTerminal(
-                  ` Server ready at ${url}\r\n`
-                );
-              }
-              try {
-                window.localStorage.setItem(storageKey, url);
-              } catch {}
-              setPreviewUrl(url);
-              setLoadingState((prev) => ({
-                ...prev,
-                starting: false,
-                ready: true,
-              }));
-              setIsSetupComplete(true);
-              setIsSetupInProgress(false);
-            });
-            serverReadyListenerAttached.current = true;
-          }
 
           // Stream output to terminal
           startProcess.output.pipeTo(
@@ -295,13 +270,63 @@ const WebContainerPreview: React.FC<WebContainerPreviewProps> = ({
     setupContainer();
   }, [instance, templateData, isSetupComplete, isSetupInProgress]);
 
-  // Cleanup function to prevent memory leaks
+  // Detect template data changes and refresh preview
   useEffect(() => {
-    return () => {
-      // Don't kill processes or cleanup when component unmounts
-      // The WebContainer should persist across component re-mounts
+    // Deep check if templateData changed (files/content modified)
+    const currentJson = JSON.stringify(templateData);
+    const lastJson = JSON.stringify(lastTemplateDataRef.current);
+    
+    if (lastJson && currentJson !== lastJson && previewUrl) {
+      console.log("[Preview] Template data changed, refreshing iframe");
+      // Force iframe refresh with cache bust
+      const newUrl = previewUrl.split("?")[0]; // Remove old timestamp
+      const bust = `${newUrl}${newUrl.includes("?") ? "&" : "?"}t=${Date.now()}`;
+      setPreviewUrl(bust);
+    }
+    lastTemplateDataRef.current = templateData;
+  }, [templateData, previewUrl]);
+
+  // Global listener to refresh preview when ANY server starts (including manual restarts from terminal)
+  useEffect(() => {
+    if (!instance) return;
+    
+    const handleServerReady = (port: number, url: string) => {
+      console.log("[Preview] Server ready on port", port, "at", url);
+      try {
+        window.localStorage.setItem(storageKey, url);
+      } catch {}
+      // Force iframe reload with cache bust
+      const bust = `${url}${url.includes("?") ? "&" : "?"}t=${Date.now()}`;
+      setPreviewUrl(bust);
+      setLoadingState((prev) => ({
+        ...prev,
+        starting: false,
+        ready: true,
+      }));
+      setIsSetupComplete(true);
+      setIsSetupInProgress(false);
+      if (terminalRef.current?.writeToTerminal) {
+        terminalRef.current.writeToTerminal(` Preview updated at ${url}\r\n`);
+      }
     };
-  }, []);
+    
+    // Attach listener for server-ready events
+    instance.on("server-ready", handleServerReady);
+    console.log("[Preview] Attached server-ready listener");
+    
+    return () => {
+      // Note: WebContainer's event emitter may not support removal,
+      // but we clean up properly if it does
+      try {
+        // @ts-ignore
+        if (instance.off) {
+          instance.off("server-ready", handleServerReady);
+        }
+      } catch (e) {
+        console.log("[Preview] Could not remove listener (expected)", e);
+      }
+    };
+  }, [instance]);
 
   if (isLoading) {
     return (

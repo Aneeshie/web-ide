@@ -32,6 +32,7 @@ export const saveUpdatedCode = async (id: string, data: TemplateFolder) => {
   if (!user) return null;
 
   try {
+    console.time(`[saveUpdatedCode] Save for playground ${id}`);
     const updatedPlayground = await prisma.templateFile.upsert({
       where: { playgroundId: id },
       update: {
@@ -42,6 +43,10 @@ export const saveUpdatedCode = async (id: string, data: TemplateFolder) => {
         content: data as any,
       },
     });
+    console.timeEnd(`[saveUpdatedCode] Save for playground ${id}`);
     return updatedPlayground;
-  } catch (error) {}
+  } catch (error) {
+    console.error("[saveUpdatedCode] Error:", error);
+    throw error;
+  }
 };

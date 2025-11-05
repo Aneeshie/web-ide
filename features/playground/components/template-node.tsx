@@ -36,8 +36,19 @@ import {
   DeleteDialog,
   NewFileDialog,
   NewFolderDialog,
+  RenameFileDialog,
   RenameFolderDialog,
 } from "./template-file-tree";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface TemplateNodeProps {
   item: TemplateItem;
@@ -53,12 +64,12 @@ interface TemplateNodeProps {
     file: TemplateFile,
     newFilename: string,
     newExtension: string,
-    parentPath: string
+    parentPath: string,
   ) => void;
   onRenameFolder?: (
     folder: TemplateFolder,
     newFolderName: string,
-    parentPath: string
+    parentPath: string,
   ) => void;
 }
 function TemplateNode({
@@ -149,6 +160,37 @@ function TemplateNode({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+
+        <RenameFileDialog
+          isOpen={isRenameDialogOpen}
+          onClose={() => setIsRenameDialogOpen}
+          onRename={handleRenameSubmit}
+          currentFilename={file.filename}
+          currentExtension={file.fileExtension}
+        />
+
+        <AlertDialog
+          open={isDeleteDialogOpen}
+          onOpenChange={setIsDeleteDialogOpen}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete File</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete "{fileName}"? This action cannot
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={confirmDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </SidebarMenuItem>
     );
   } else {

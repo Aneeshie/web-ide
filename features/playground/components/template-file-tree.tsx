@@ -93,12 +93,12 @@ interface TemplateFileTreeProps {
     file: TemplateFile,
     newFilename: string,
     newExtension: string,
-    parentPath: string
+    parentPath: string,
   ) => void;
   onRenameFolder?: (
     folder: TemplateFolder,
     newFolderName: string,
-    parentPath: string
+    parentPath: string,
   ) => void;
 }
 
@@ -216,12 +216,12 @@ export function TemplateFileTree({
         onClose={() => {
           setIsNewFileDialogOpen(false);
         }}
-        onCreateFile={() => {}}
+        onCreateFile={handleCreateFile}
       />
       <NewFolderDialog
         isOpen={isNewFolderDialogOpen}
         onClose={() => setIsNewFolderDialogOpen(false)}
-        onCreateFolder={() => {}}
+        onCreateFolder={handleCreateFolder}
       />
     </Sidebar>
   );
@@ -541,7 +541,7 @@ export function DeleteDialog({
           <AlertDialogAction
             onClick={onConfirm}
             className={cn(
-              "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              "bg-destructive text-destructive-foreground hover:bg-destructive/90",
             )}
           >
             {confirmLabel}

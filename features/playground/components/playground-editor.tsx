@@ -140,8 +140,12 @@ export const PlaygroundEditor = ({
             ],
           };
         },
-        freeInlineCompletions: (completions: any) => {
+        // Monaco API compatibility across versions: some expect disposeInlineCompletions
+        freeInlineCompletions: (_completions: any) => {
           console.log("freeInlineCompletions called");
+        },
+        disposeInlineCompletions: (_completions: any) => {
+          console.log("disposeInlineCompletions called");
         },
       };
     },

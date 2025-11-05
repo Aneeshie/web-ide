@@ -7,7 +7,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
+import LoadingStep from "@/components/ui/loader";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,7 +27,17 @@ import { TemplateFileTree } from "@/features/playground/components/template-file
 import { useFileExplorer } from "@/features/playground/hooks/use-file-explorer";
 import { usePlayground } from "@/features/playground/hooks/use-playground";
 import { TemplateFile } from "@/features/playground/types";
-import { Bot, FileText, Save, Settings2, X } from "lucide-react";
+import WebContainerPreview from "@/features/web-containers/components/web-container-preview";
+import { useWebContainer } from "@/features/web-containers/hooks/use-web-container";
+import {
+  AlertCircle,
+  Bot,
+  Divide,
+  FileText,
+  Save,
+  Settings2,
+  X,
+} from "lucide-react";
 import { useParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
@@ -52,6 +67,14 @@ const Page = () => {
     setOpenFiles,
   } = useFileExplorer();
 
+  const {
+    serverUrl,
+    isLoading: containerLoading,
+    error: containerError,
+    instance,
+    writeFileSync,
+  } = useWebContainer({ templateData: templateData! });
+
   useEffect(() => {
     setPlaygroundId(id);
   }, [id, setPlaygroundId]);
@@ -68,6 +91,47 @@ const Page = () => {
   const handleFileSelect = (file: TemplateFile) => {
     openFile(file);
   };
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] p-4">
+        <AlertCircle className="size-12 text-red-500 mb-4" />
+        <h2 className="text-xl font-semibold text-red-600">
+          Something went wrong
+        </h2>
+        <p className="text-gray-600 mb-4">{error}</p>
+        <Button
+          onClick={() => window.location.reload()}
+          variant={"destructive"}
+        >
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] p-4">
+        <div className="w-full max-w-md p-6 rounded-lg shadow-sm border">
+          <h2 className="text-xl font-semibold mb-6 text-center">
+            Loading Playground...
+          </h2>
+          <LoadingStep
+            currentStep={1}
+            step={1}
+            label="Fetching playground data"
+          />
+          <LoadingStep
+            currentStep={2}
+            step={2}
+            label="Loading Playground data"
+          />
+          <LoadingStep currentStep={3} step={3} label="Ready to code" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider>
@@ -229,6 +293,22 @@ const Page = () => {
                         }
                       />
                     </ResizablePanel>
+                    {isPreviewVisible && (
+                      <>
+                        <ResizableHandle />
+                        <ResizablePanel defaultSize={50}>
+                          <WebContainerPreview
+                            templateData={templateData!}
+                            instance={instance}
+                            serverUrl={serverUrl!}
+                            isLoading={containerLoading}
+                            error={containerError}
+                            writeFileSync={writeFileSync}
+                            forceResetup={false}
+                          />
+                        </ResizablePanel>
+                      </>
+                    )}
                   </ResizablePanelGroup>
                 </div>
               </div>

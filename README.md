@@ -192,12 +192,18 @@ Pre-built project templates in `/code-starters/` directory are converted to JSON
 
 ---
 
+---
+
 ### Status of Certain Features
 
 > ⚠️ **Heads Up**
-> The **User Settings** page and **Add Git Repository** features are still under development.
-> The buttons are currently placeholders and **do not perform any actions yet**.
-> Functionality will be rolled out in upcoming updates ✨
+> The following features are still a *work in progress*:
+>
+> - **User Settings Page** — UI is present but actions/settings aren't fully wired up yet.
+> - **Add Git Repository** — The button is currently non-functional (just for show fr).
+> - **AI Chat Panel** — Basic chat works, but context handling & conversation memory are not fully implemented yet, so responses may be inconsistent or limited.
+>
+> These features will be improved and fully enabled in upcoming updates ✨
 
 
 ## Troubleshooting
